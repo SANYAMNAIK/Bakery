@@ -13,9 +13,22 @@ const { getAdminDB } = require('../db');
 router.post('/dp-change', async (req, res) => {
     try {
         const { adminid, image } = req.body;
+        if (!adminid || !image) {
+            return res.status(400).json({ msg: 'Admin and image are required' });
+        }
+
         const db = getAdminDB();
-        await db.collection('User').updateOne({ Username: adminid }, { $set: { Image: image } });
-        res.json({ msg: 'Updated Successfully' });
+        const result = await db.collection('User').updateOne(
+            { Username: adminid },
+            { $set: { Image: image } }
+        );
+
+        if (!result.matchedCount) {
+            return res.status(404).json({ msg: 'Admin profile not found' });
+        }
+
+        const updated = await db.collection('User').findOne({ Username: adminid });
+        res.json({ msg: 'Updated Successfully', data: updated });
     } catch (err) {
         console.error('Admin DP change error:', err);
         res.status(500).json({ msg: 'Server error' });
@@ -26,12 +39,32 @@ router.post('/dp-change', async (req, res) => {
 router.post('/data-change', async (req, res) => {
     try {
         const { adminid, username, phone, name, email, address } = req.body;
+        if (!adminid || !username || !email) {
+            return res.status(400).json({ msg: 'Username and email are required' });
+        }
+
         const db = getAdminDB();
+        const existing = await db.collection('User').findOne({ Username: adminid });
+        if (!existing) {
+            return res.status(404).json({ msg: 'Admin profile not found' });
+        }
+
+        const displayName = String(name || existing.Name || existing.Fullname || username).trim();
         await db.collection('User').updateOne(
             { Username: adminid },
-            { $set: { Username: username, Phoneno: phone, Email: email, Address: address, Name: name } }
+            {
+                $set: {
+                    Username: username,
+                    Phoneno: phone || '',
+                    Email: email,
+                    Address: address || '',
+                    Name: displayName,
+                    Fullname: displayName
+                }
+            }
         );
-        res.json({ msg: 'Updated Successfully' });
+        const updated = await db.collection('User').findOne({ Username: username });
+        res.json({ msg: 'Updated Successfully', data: updated });
     } catch (err) {
         console.error('Admin data change error:', err);
         res.status(500).json({ msg: 'Server error' });
@@ -42,12 +75,17 @@ router.post('/data-change', async (req, res) => {
 router.post('/social-change', async (req, res) => {
     try {
         const { adminid, insta, git } = req.body;
+        if (!adminid) {
+            return res.status(400).json({ msg: 'Admin is required' });
+        }
+
         const db = getAdminDB();
         await db.collection('User').updateOne(
             { Username: adminid },
-            { $set: { Instalink: insta, Githublink: git } }
+            { $set: { Instalink: insta || '', Githublink: git || '' } }
         );
-        res.json({ msg: 'Updated Successfully' });
+        const updated = await db.collection('User').findOne({ Username: adminid });
+        res.json({ msg: 'Updated Successfully', data: updated });
     } catch (err) {
         console.error('Admin social change error:', err);
         res.status(500).json({ msg: 'Server error' });
@@ -58,6 +96,10 @@ router.post('/social-change', async (req, res) => {
 router.post('/pass-reset', async (req, res) => {
     try {
         const { Key, newrp, old } = req.body;
+        if (!Key || !old || !newrp) {
+            return res.status(400).json({ msg: 'All password fields are required' });
+        }
+
         const db = getAdminDB();
         const user = await db.collection('User').findOne({ Username: Key });
         if (!user) {

@@ -25,7 +25,10 @@ import pic1 from '../images/products/pic5.jpg';
 const Customer = () => {
     const url = "http://localhost:5000/api/admin/customers/list";
     const url2 = "http://localhost:5000/api/admin/customers/search";
+    const url3 = "http://localhost:5000/api/admin/customers/delete";
     const [response, setResponse] = useState(null);
+    const [message, setMessage] = useState("");
+    const [error, setError] = useState("");
     useEffect(() => {
 
         let body_styles = window.getComputedStyle(document.body);
@@ -165,26 +168,63 @@ const Customer = () => {
     }, []);
 
     const profilerendrer = async (e) => {
-        const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+        setError("");
+        try {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
 
-        });
-        const responseData = await response.json();
-        setResponse(responseData);
-        console.log(responseData);
+            });
+            const responseData = await response.json();
+            setResponse(Array.isArray(responseData) ? responseData : []);
+        } catch (err) {
+            setResponse([]);
+            setError("Unable to load customers. Please check server port 5000.");
+        }
 
     }
 const search=async(e)=>{
-   const response = await fetch(url2, {
-        method: "POST",
-       headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keyword: e.target.value })
-    });
-    const responseData = await response.json();
-    setResponse(responseData);
-   
-  
+    const keyword = e.target.value;
+    setError("");
+    try {
+        const response = await fetch(url2, {
+            method: "POST",
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keyword })
+        });
+        const responseData = await response.json();
+        setResponse(Array.isArray(responseData) ? responseData : []);
+    } catch (err) {
+        setResponse([]);
+        setError("Unable to search customers.");
+    }
+}
+
+const deleteCustomer = async (username) => {
+    const confirmed = window.confirm(`Delete customer "${username}"?\nThis will also remove this customer's cart items.`);
+    if (!confirmed) return;
+
+    setMessage("");
+    setError("");
+
+    try {
+        const response = await fetch(url3, {
+            method: "POST",
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username })
+        });
+        const responseData = await response.json();
+
+        if (!response.ok) {
+            setError(responseData.msg || "Unable to delete customer.");
+            return;
+        }
+
+        setMessage(responseData.msg || "Customer deleted successfully.");
+        setResponse((current) => Array.isArray(current) ? current.filter((item) => item.Username !== username) : []);
+    } catch (err) {
+        setError("Unable to delete customer.");
+    }
 }
     return (
         <>
@@ -298,6 +338,12 @@ const search=async(e)=>{
                         </div>
                     </div><br />
 
+                    {(message || error) && (
+                        <div className={`alert ${error ? 'alert-danger' : 'alert-success'}`} role="alert">
+                            {error || message}
+                        </div>
+                    )}
+
                     <div className="row g-4">
                         {response ? (response.map((response, index) => (
                             <div key={index} className="col-lg-4 col-md-6 col-sm-12">
@@ -315,6 +361,9 @@ const search=async(e)=>{
                                             <Link to={`/Buyeradd/${response.Username}`} className="btn btn-outline-primary btn-icon">
                                                 <i className="bi bi-person-plus"></i> Profile   
                                             </Link>
+                                            <button type="button" onClick={() => deleteCustomer(response.Username)} className="btn btn-outline-danger btn-icon">
+                                                <i className="bi bi-trash"></i> Delete
+                                            </button>
 
                                         </div>
                                     </div>

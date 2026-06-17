@@ -1,26 +1,34 @@
-import React, { Component, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import logo from '../images/logo.png';
 import admindp from '../images/user/photo9.jpg'
 import { Link } from 'react-router-dom';
 import { destroySessionToken, getSessionToken } from './Auth';
 import { useNavigate } from 'react-router-dom';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 function Navbar(props) {
     const navigate = useNavigate();
     const sessionToken = getSessionToken();
     const [response, setResponse] = useState(null);
+    const adminImage = props.img || response?.Image || admindp;
   
    
-    const url1 = "http://localhost:5000/api/admin/renderer";
+    const url1 = `${API_BASE_URL}/api/admin/renderer`;
     const initializer = async () => {
-        const response = await fetch(url1, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-                
-            },
-        })
-        const responsedata = await response.json();
-        setResponse(responsedata);
+        try {
+            const response = await fetch(url1, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ username: getSessionToken() }),
+            })
+            const responsedata = await response.json();
+            setResponse(responsedata);
+        } catch (err) {
+            setResponse(null);
+        }
        
 
     }
@@ -532,9 +540,15 @@ function Navbar(props) {
                     <div className="dropdown">
                         <a href="#" className="d-flex align-items-center" data-bs-toggle="dropdown">
                             <div className="avatar me-3">
-                                <img src={response?response.Image:""   }
-
-                                    className="rounded-circle" alt="image" />
+                                <img
+                                    src={adminImage}
+                                    className="rounded-circle"
+                                    alt="Admin avatar"
+                                    onError={(event) => {
+                                        event.currentTarget.onerror = null;
+                                        event.currentTarget.src = admindp;
+                                    }}
+                                />
                             </div>
                             <div>
                                 <div className="fw-bold"><h4><b> {sessionToken ? sessionToken : navigate('/login')}</b></h4></div>

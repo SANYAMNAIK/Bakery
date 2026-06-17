@@ -4,6 +4,7 @@
  * POST /api/customers/list
  * POST /api/customers/view
  * POST /api/customers/search
+ * POST /api/customers/delete
  * POST /api/customers/dp-change
  * POST /api/customers/data-change
  * POST /api/customers/address-change
@@ -13,6 +14,10 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { getCustomerDB } = require('../db');
+
+function escapeRegex(str) {
+    return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 // POST /api/customers/add
 router.post('/add', async (req, res) => {
@@ -65,12 +70,42 @@ router.post('/view', async (req, res) => {
 // POST /api/customers/search
 router.post('/search', async (req, res) => {
     try {
-        const { Key } = req.body;
+        const keyword = String(req.body.keyword || req.body.Key || '').trim();
         const db = getCustomerDB();
-        const data = await db.collection('customer').findOne({ Username: Key });
+        const data = await db.collection('customer').find({
+            $or: [
+                { Username: { $regex: `.*${escapeRegex(keyword)}.*`, $options: 'i' } },
+                { Fullname: { $regex: `.*${escapeRegex(keyword)}.*`, $options: 'i' } },
+                { Email: { $regex: `.*${escapeRegex(keyword)}.*`, $options: 'i' } },
+                { Phone: { $regex: `.*${escapeRegex(keyword)}.*`, $options: 'i' } }
+            ]
+        }).toArray();
         res.json(data);
     } catch (err) {
         console.error('Customer search error:', err);
+        res.status(500).json({ msg: 'Server error' });
+    }
+});
+
+// POST /api/customers/delete
+router.post('/delete', async (req, res) => {
+    try {
+        const username = String(req.body.username || '').trim();
+        if (!username) {
+            return res.status(400).json({ msg: 'Username is required' });
+        }
+
+        const db = getCustomerDB();
+        const result = await db.collection('customer').deleteOne({ Username: username });
+        await db.collection('cart').deleteMany({ Username: username });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ msg: 'Customer not found' });
+        }
+
+        res.json({ msg: 'Customer deleted successfully' });
+    } catch (err) {
+        console.error('Customer delete error:', err);
         res.status(500).json({ msg: 'Server error' });
     }
 });

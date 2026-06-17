@@ -2,254 +2,231 @@ import React, { useEffect, useState } from "react";
 import Navbar from "./Navbar";
 import { Link } from 'react-router-dom';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
-import pic3 from '../images/products/pic3.jpg';
-import pic4 from '../images/products/pic4.jpg';
-import pic10 from '../images/products/pic10.jpg';
-import pic7 from '../images/products/pic7.jpg';
-import pic8 from '../images/products/pic8.jpg';
-import pic9 from '../images/products/pic9.jpg';
-import pic1 from '../images/products/pic1.jpg';
 function Productgrid() {
-    const url = "http://localhost:5000/api/admin/products/list";
-    const [response, setResponse] = useState(null);
-    const [category, setcategory] = useState(null);
-    const url2 = "http://localhost:5000/api/admin/categories/list";
-    const url3 = "http://localhost:5000/api/admin/products/search";
-    const url4 = "http://localhost:5000/api/admin/products/filter";
-    useEffect(() => {
-        categoryrendrer();
-        productrendrer();
-    }, []);
-    const productrendrer = async () => {
-        const response = await fetch(url, {
+    const [products, setProducts] = useState([]);
+    const [categories, setCategories] = useState([]);
+    const [keyword, setKeyword] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('all');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    const formatCurrency = (amount) => {
+        const value = Number(amount) || 0;
+        return `Rs. ${value.toLocaleString('en-IN')}`;
+    };
+
+    const categoryName = (cid) => {
+        const match = categories.find((item) => item.Cid === cid);
+        return match ? match.Cname : 'Uncategorized';
+    };
+
+    const stockInfo = (quantity) => {
+        const qty = Number(quantity) || 0;
+        if (qty <= 0) return { className: 'out', label: 'Out of stock' };
+        if (qty <= 10) return { className: 'low', label: `Low stock: ${qty}` };
+        return { className: 'ok', label: `In stock: ${qty}` };
+    };
+
+    const loadCategories = async () => {
+        const response = await fetch(`${API_BASE_URL}/api/admin/categories/list`, {
             method: "POST",
             headers: { 'Content-Type': 'application/json' },
-
         });
-        const responseData = await response.json();
-        setResponse(responseData);
-    }
+        const data = await response.json();
+        setCategories(Array.isArray(data) ? data : []);
+    };
 
-    const categoryrendrer = async (e) => {
-        const response = await fetch(url2, {
-            method: "POST",
-            headers: { 'Content-Type': 'application/json' },
-
-        });
-        const responseData = await response.json();
-        setcategory(responseData);
-
-    }
-    const psesrch = async (e) => {
-
-        const response = await fetch(url3, {
-            method: "POST",
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ keyword: e.target.value })
-        });
-        const responseData = await response.json();
-        setResponse(responseData);
-
-
-    }
-    const handleCheckboxChange = async (e) => {
-        if (e.target.checked) {
-            const response = await fetch(url4, {
+    const loadProducts = async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/admin/products/list`, {
                 method: "POST",
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cid: e.target.value })
             });
-            const responseData = await response.json();
-            setResponse(responseData);
-            console.log(responseData);
+            const data = await response.json();
+            setProducts(Array.isArray(data) ? data : []);
+        } catch (err) {
+            setError('Unable to load products. Please check server port 5000.');
+            setProducts([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadCategories();
+        loadProducts();
+    }, []);
+
+    const handleSearch = async (e) => {
+        const value = e.target.value;
+        setKeyword(value);
+        setSelectedCategory('all');
+        setLoading(true);
+        setError('');
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/admin/products/search`, {
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keyword: value })
+            });
+            const data = await response.json();
+            setProducts(Array.isArray(data) ? data : []);
+        } catch (err) {
+            setError('Search failed. Please check server port 5000.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCategory = async (cid) => {
+        setSelectedCategory(cid);
+        setKeyword('');
+
+        if (cid === 'all') {
+            loadProducts();
+            return;
         }
 
+        setLoading(true);
+        setError('');
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/admin/products/filter`, {
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cid })
+            });
+            const data = await response.json();
+            setProducts(Array.isArray(data) ? data : []);
+        } catch (err) {
+            setError('Unable to filter products.');
+        } finally {
+            setLoading(false);
+        }
     };
+
+    const stats = {
+        total: products.length,
+        lowStock: products.filter((item) => Number(item.Quantity) <= 10).length,
+        value: products.reduce((sum, item) => sum + ((Number(item.Price) || 0) * (Number(item.Quantity) || 0)), 0)
+    };
+
     return (
         <>
             <Navbar activator2="active" />
-            <div className="layout-wrapper">
-
-
-                <div className="header">
+            <div className="layout-wrapper admin-workspace">
+                <div className="header admin-topbar">
                     <div className="menu-toggle-btn">
-                        <a href="#">
+                        <button type="button" className="admin-soft-icon">
                             <i className="bi bi-list"></i>
-                        </a>
+                        </button>
                     </div>
-
-                    <a href="./dashboard.html" className="logo">
-                        <img width="100" src="../logo.png" alt="logo" />
-                    </a>
-
-                    <div className="page-title">Products List</div>
-                    <form className="search-form">
+                    <Link to="/dashboard" className="logo admin-brand">Bakery</Link>
+                    <div className="page-title">Products</div>
+                    <form className="search-form" onSubmit={(e) => e.preventDefault()}>
                         <div className="input-group">
-                            <button className="btn btn-outline-light" type="button" id="button-addon1">
+                            <button className="btn btn-outline-light" type="button">
                                 <i className="bi bi-search"></i>
                             </button>
-                            <input type="text" className="form-control" placeholder="Search..."
-                                aria-label="Example text with button addon" aria-describedby="button-addon1" />
-                            <Link to={'#'} className="btn btn-outline-light close-header-search-bar">
-                                <i className="bi bi-x"></i></Link>
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Search products..."
+                                value={keyword}
+                                onChange={handleSearch}
+                            />
                         </div>
                     </form>
                     <div className="header-bar ms-auto">
-                        <ul className="navbar-nav justify-content-end">
-                            <li className="nav-item">
-                                <Link to={'#'} className="nav-link nav-link-notify" data-count="2" data-sidebar-target="#notifications"> <i className="bi bi-bell icon-lg"></i></Link>
-                            </li>
+                        <Link to="/productadd" className="admin-primary-btn compact">
+                            <i className="bi bi-plus-circle"></i> Add Product
+                        </Link>
+                    </div>
+                </div>
 
-                            <li className="nav-item ms-3">
-                                <Link to={('/productadd')}>
-                                    <button className="btn btn-primary btn-icon">
-                                        <i className="bi bi-plus-circle"></i> Add Product
+                <div className="content admin-content">
+                    <div className="admin-hero">
+                        <div>
+                            <span>Catalog</span>
+                            <h2>Product Management</h2>
+                            <p>Search, filter, add, edit, and review stock from your live database.</p>
+                        </div>
+                        <Link to="/addcategory" className="admin-dark-btn">
+                            <i className="bi bi-tags"></i> Manage Categories
+                        </Link>
+                    </div>
+
+                    <div className="admin-stats">
+                        <div><span>Total Products</span><strong>{stats.total}</strong></div>
+                        <div><span>Low Stock</span><strong>{stats.lowStock}</strong></div>
+                        <div><span>Inventory Value</span><strong>{formatCurrency(stats.value)}</strong></div>
+                    </div>
+
+                    <div className="admin-product-layout">
+                        <aside className="admin-panel admin-filter-panel">
+                            <div className="admin-section-title">
+                                <span>Filter</span>
+                                <strong>Categories</strong>
+                            </div>
+                            <div className="admin-filter-list">
+                                <button
+                                    type="button"
+                                    className={selectedCategory === 'all' ? 'active' : ''}
+                                    onClick={() => handleCategory('all')}
+                                >
+                                    All Products
+                                </button>
+                                {categories.map((item) => (
+                                    <button
+                                        type="button"
+                                        key={`${item.Cid}-${item.Cname}`}
+                                        className={selectedCategory === item.Cid ? 'active' : ''}
+                                        onClick={() => handleCategory(item.Cid)}
+                                    >
+                                        {item.Cname}
                                     </button>
-                                </Link>
-                            </li>
-                        </ul>
-                    </div>
+                                ))}
+                            </div>
+                        </aside>
 
-                    <div className="header-mobile-buttons">
-                        <Link to={'#'} className="search-bar-btn"> <i className="bi bi-search"></i></Link>
-                        <Link to={'#'} className="actions-btn"><i className="bi bi-three-dots"></i></Link>
-                    </div>
-
-                </div>
-
-                <div className="content ">
-
-                    <div className="mb-4">
-                        <nav style={{ "--bs-breadcrumb-divider": "'>'" }} aria-label="breadcrumb">
-                            <ol className="breadcrumb">
-                                <li className="breadcrumb-item">
-                                    <Link to={'/dashboard'}><i className="bi bi-globe2 small me-2"></i> Dashboard</Link>
-                                </li>
-                                <li className="breadcrumb-item active" aria-current="page">Products</li>
-                            </ol>
-                        </nav>
-                    </div>
-
-                    <div className="row">
-                        <div className="col-md-8">
-                            <div className="card mb-4">
-                                <div className="card-body">
-                                    <div className="d-md-flex gap-4 align-items-center">
-                                        <div className="d-none d-md-flex">All Products</div>
-                                        <div className="d-md-flex gap-4 align-items-center">
-                                            <form className="mb-3 mb-md-0">
-                                                <div className="row g-3">
-                                                    <div className="col-md-6">
-
+                        <main>
+                            {error && <div className="admin-alert error">{error}</div>}
+                            {!error && loading && <div className="admin-empty">Loading products...</div>}
+                            {!error && !loading && products.length === 0 && <div className="admin-empty">No products found.</div>}
+                            {!error && !loading && products.length > 0 && (
+                                <div className="admin-product-grid">
+                                    {products.map((item) => {
+                                        const stock = stockInfo(item.Quantity);
+                                        return (
+                                            <article className="admin-product-card" key={item._id}>
+                                                <div className="admin-product-media">
+                                                    <img src={item.PImage} alt={item.Pname} />
+                                                    <span className={`admin-stock ${stock.className}`}>{stock.label}</span>
+                                                </div>
+                                                <div className="admin-product-info">
+                                                    <span>{categoryName(item.Categoryid)}</span>
+                                                    <h3>{item.Pname}</h3>
+                                                    <p>{item.Description || 'No description added.'}</p>
+                                                    <div>
+                                                        <strong>{formatCurrency(item.Price)}</strong>
+                                                        <Link to={`/productview/${item._id}`} className="admin-outline-btn compact">Edit</Link>
                                                     </div>
-                                                    <div className="col-md-6">
-
-                                                    </div>
-
                                                 </div>
-
-                                            </form>
-                                            <Link to={("/addcategory")}>
-                                                <button className="btn btn-warning btn-icon">
-                                                    <i className="bi bi-plus-circle"></i> Add Category
-                                                </button></Link>
-                                        </div>
-
-                                    </div>
+                                            </article>
+                                        );
+                                    })}
                                 </div>
-                            </div>
-
-                            <div className="row g-4">
-                                {response ? (response.map((response, index) => (
-                                  
-                                    <div key={index} className="col-lg-4 col-md-6 col-sm-12">
-                                        <div className="card card-hover">
-                                            <Link to={'#'}>
-                                                <img src={response.PImage} className="card-img-top" alt="..." />
-                                            </Link>
-
-
-                                            <div className="card-body">
-                                                <Link to={'#'}><h5 className="card-title mb-3">{response.Pname}</h5></Link>
-                                                <div className="d-flex gap-3 mb-3 align-items-center">
-
-                                                    <h4 className="mb-0">₹{response.Price}</h4>
-                                                </div>
-
-                                                <div className="d-flex">
-                                                    <Link to={`/productview/${response._id}`} className="btn btn-primary">Product Detail &gt;</Link>
-                                                  
-                                                </div>
-                                              
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))) : ("No Category Found")}
-
-                            </div>
-
-                        </div>
-                        <div className="col-md-4">
-                            <h5 className="mb-4">Filter Products</h5>
-                            <div className="card mb-4">
-                                <div className="card-body">
-                                    <div className="d-flex justify-content-between align-items-center" data-bs-toggle="collapse"
-                                        aria-expanded="true" data-bs-target="#keywordsCollapseExample" role="button">
-                                        <div>Keywords</div>
-                                        <div className="bi bi-chevron-down"></div>
-                                    </div>
-                                    <div className="collapse show mt-4" id="keywordsCollapseExample">
-                                        <div className="input-group">
-                                            <input type="text" className="form-control" onInput={psesrch} placeholder="Cake,Cookies,Pastery ..." />
-                                            <button className="btn btn-outline-light" type="button">
-                                                <i className="bi bi-search"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="card mb-4">
-                                <div className="card-body">
-                                    <div className="d-flex justify-content-between align-items-center" data-bs-toggle="collapse"
-                                        aria-expanded="true" data-bs-target="#categoriesCollapseExample" role="button">
-                                        <div>Categories</div>
-                                        <div className="bi bi-chevron-down"></div>
-                                    </div>
-                                    <div className="collapse show mt-4" id="categoriesCollapseExample">
-                                        <div className="d-flex flex-column gap-3">
-                                            <div className="form-check">
-                                                <input className="form-check-input" onChange={productrendrer} type="radio" defaultChecked name="category" id="categoryCheck1" />
-                                                <label className="form-check-label" for="categoryCheck1">
-                                                    All
-                                                </label>
-                                            </div>
-                                            {category ? (category.map((category, index) => (
-                                                < div key={index} className="form-check">
-                                                    <input className="form-check-input" onChange={handleCheckboxChange} value={category.Cid} type="radio" name="category" id="categoryCheck1" />
-                                                    <label className="form-check-label" for="categoryCheck1">
-                                                        {category.Cname}
-                                                    </label>
-                                                </div>
-                                            ))) : "No Category Found"}
-
-
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                        </div>
+                            )}
+                        </main>
                     </div>
-
                 </div>
-
-
-
-
             </div>
-
         </>
     );
 }
+
 export default Productgrid;

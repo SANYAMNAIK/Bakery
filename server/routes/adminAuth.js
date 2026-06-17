@@ -44,8 +44,16 @@ router.post('/login', [
 // POST /api/admin/renderer — get admin user data
 router.post('/renderer', async (req, res) => {
     try {
+        const { username } = req.body || {};
         const db = getAdminDB();
-        const data = await db.collection('User').findOne();
+        const data = username
+            ? await db.collection('User').findOne({ Username: username })
+            : await db.collection('User').findOne();
+
+        if (!data) {
+            return res.status(404).json({ msg: 'Admin profile not found' });
+        }
+
         res.json(data);
     } catch (err) {
         console.error('Admin renderer error:', err);

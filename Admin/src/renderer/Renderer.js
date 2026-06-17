@@ -72,6 +72,7 @@ class Renderer extends Component {
                     <Route path='/user-grid' exact element={<Usergrid />} />
 
                     <Route path='/' exact element={<Login />} />
+                    <Route path='/login' exact element={<Login />} />
                     <Route path='/reset-pass' exact element={<Resetpass />} />
                     <Route path='/account-verified' exact element={<Acntverify />} />
 
