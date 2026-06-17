@@ -16,7 +16,6 @@ Built using React.js for the frontend, Node.js and Express.js for the backend, a
 - Shopping cart with quantity and total calculation
 - Order placement and order tracking
 - Invoice page for customer orders
-- Admin profile with editable details and avatar upload
 - Responsive user interface for user and admin panels
 - MongoDB Atlas database integration
 
